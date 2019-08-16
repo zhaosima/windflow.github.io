@@ -5,8 +5,10 @@ tags:
 ---
 ## the power usage of Aggregate
 
+
 因为阅读了某位作者文章的缘故，我也去翻了下.net Mvc启动管道的源码。在其中发现了这么一段代码：
 
+```C#
      endContinuation = filters.Reverse<IActionFilter>().Aggregate<IActionFilter, Func<Func<ActionExecutedContext>>>((Func<Func<ActionExecutedContext>>) (() =>
         {
           innerAsyncResult = this.BeginInvokeActionMethod(controllerContext, actionDescriptor, parameters, asyncCallback, asyncState);
@@ -15,9 +17,11 @@ tags:
             Result = this.EndInvokeActionMethod(innerAsyncResult)
           });
         }), (Func<Func<Func<ActionExecutedContext>>, IActionFilter, Func<Func<ActionExecutedContext>>>) ((next, filter) => (Func<Func<ActionExecutedContext>>) (() => AsyncControllerActionInvoker.InvokeActionMethodFilterAsynchronously(filter, preContext, next))))();
+```
 
 一看之下，几乎要被它长长的气势所吓倒。其本质是Linq聚合函数，只不过一串Func实在太过耀眼。为了深入理解，我写了段相似代码来模拟运行。
 
+```C#
         public static void TestFilters()
         {
             var filters = new List<IMyFilter> {new MyFilter.FilterA(), new MyFilter.FilterB(), new MyFilter.FilterC()};
@@ -80,7 +84,7 @@ tags:
                 throw;
             }
         }
-
+```
 
 这里的流程如下：
 
@@ -116,15 +120,18 @@ tags:
 
 一般来说，我们对于Linq Aggregate 的运用都来自于很简单的例子，或者很常见的场景，比如字符串连接：
 
+```C#
     new List<String>() {"aa", "bb"}.Aggregate((t, e) => t + "-" + e)
+```
 
 这么写谁都会，但涉及到复杂一点的东西，就不会想到用聚合来做。说到底，还是对某种概念的理解流于表面。例如，我们可以这样实现一个累加生成器：
 
+```C#
         Func<int, int> Sumer(IEnumerable<int> seeds)
         {
             return seeds.Aggregate<int, Func<int, int>>(x => x, (next, number) => y => next(number) + y);
         }
         Sumer(new [] {1,2,3})(4); //10
-
+```
 
 

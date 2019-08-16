@@ -7,7 +7,7 @@ tags:
 
 思考当我们写下这样的代码时，发生了什么？
 
-``` c#
+``` Java
     public async Task BuyJuice()
     {
         await WaitInQueue();

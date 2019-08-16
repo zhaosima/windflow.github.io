@@ -8,7 +8,7 @@ tags:
 
 ### 多线程顺序读取不加锁
 
-
+```Java
         int myindex;
         readonly List<int> mydata = new List<int>() { 5, 7, 9 };
 
@@ -23,10 +23,11 @@ tags:
 
             return mydata[myindex];
         }
-
+```
 
 ### 等待读取不睡眠
 
+```Java
         ConcurrentQueue<object> logQueue = new ConcurrentQueue<object>();
 
         void ConsumeLogContinuously()
@@ -43,4 +44,4 @@ tags:
                 }
             }
         }
-
+```

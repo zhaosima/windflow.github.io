@@ -5,14 +5,14 @@
 # Site
 title: WindFlow
 subtitle: SunSal
-description: tech blog
+description: tea blog
 author: WindFlow
 language: zh-CN
 timezone: Asia/Shanghai
 
 # URL
 ## If your site is put in a subdirectory, set url as 'http://yoursite.com/child' and root as '/child/'
-url: www.fuckingHexoleesei.com
+url: https://simazhao.github.io
 root: /
 permalink: :year-:month-:day-:title/
 permalink_defaults:
@@ -39,9 +39,15 @@ relative_link: false
 future: true
 highlight:
   enable: true
-  line_number: true
+  line_number: false
   auto_detect: false
   tab_replace: false
+
+prism_plugin:
+  mode: "preprocess"
+  theme: "tomorrow"
+  line_number: false
+  cutom_css:
 
 # Category & Tag
 default_category: uncategorized
@@ -59,13 +65,13 @@ time_format: HH:mm:ss
 
 # Pagination
 ## Set per_page to 0 to disable pagination
-per_page: 0
+per_page: 12
 pagination_dir: page
 
 # Extensions
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
-theme: yinwang
+theme: hexo-theme-cactus
 
 # Deployment
 ## Docs: https://hexo.io/docs/deployment.html

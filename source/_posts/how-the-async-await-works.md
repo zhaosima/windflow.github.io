@@ -8,6 +8,8 @@ tags:
 
 为了一探 async&await 的究竟，让我们先写一个最简单的 WinForm。 有一个按钮，点一下加载图片。只不过这次加载是异步的，不会阻塞 UI 线程。
 
+
+```Java
     private async void button1_Click(object sender, EventArgs e)
     {
         this.textBox1.Text = $"#{GetThreadInfo()}# 获取图像中.....";
@@ -20,9 +22,11 @@ tags:
         await Task.Delay(5000);
         return "welcome.gif";
     }
+```
 
 使用 ILSpy 或者 DotPeek 加载编译后的 exe, 找到 Form1 class, 然后打开 IL 查看器。首先来看看 button1_Click 的编译结果。
 
+```Java
     .method private hidebysig instance void 
         button1_Click(
           object sender, 
@@ -70,10 +74,11 @@ tags:
         IL_003d: ret          
     
       } // end of method Form1::button1_Click        
-
+```
 
 根据 IL 翻译成的代码如下：
 
+```Java
     AsyncCallWinForm.Form1/'<button1_Click>d__1 V_0;
     AsyncVoidMethodBuilder V_1;
     
@@ -86,18 +91,21 @@ tags:
     V_0.state = -1;
     V_1= V_0.t_builder;
     Methodof(AsyncVoidMethodBuilder.Start).Invoke(V_1/*this pointer of     AsyncVoidMethodBuilder*/, V_0);
-    
+```
+
 转成方便人类阅读的代码如下：
 
+```Java
     var buidler = AsyncVoidMethodBuilder::Create(); // 由于是 async void 所以生成的是 AsyncVoidMethodBuilder。 当然一般不建议用 async void。
     var stateMachine = new button1_Click_stateMachine();
     stateMachine.Init(); // 初始化代码，忽略
     stateMachine.State = -1;
     buidler.Start(stateMachine);
-
+```
 
 那么 builder.Start 做了什么呢？ 继续看。  找到 AsyncVoidMethodBuilder(.net core 版本) 的[源码](https://github.com/dotnet/coreclr/blob/master/src/System.Private.CoreLib/src/System/Runtime/CompilerServices/AsyncMethodBuilder.cs)
 
+```Java
     [DebuggerStepThrough]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Start<TStateMachine>(ref TStateMachine stateMachine) where StateMachine : IAsyncStateMachine =>
@@ -116,9 +124,11 @@ tags:
             // 一些省略的复原ExecutionContext的代码
         }
     }
+```
 
 接下来就要看看 StateMachine.MoveNext 都做了什么. 这次回到 Form1 的反编译结果。
 
+```Java
     .class nested private sealed auto ansi beforefieldinit 
     '<button1_Click>d__1'
       extends [mscorlib]System.Object
@@ -282,9 +292,11 @@ tags:
       IL_0105: ret          
 
     } // end of method '<button1_Click>d__1'::MoveNext
+```
 
 让我们再来开动下粗糙的大脑，试图想明白 IL 指令都做了什么。
 
+```Java
     int32 V_0；
     System.Runtime.CompilerServices.TaskAwaiter<string> V_1;
     AsyncCallWinForm.Form1/'<button1_Click>d__1' V_2;
@@ -329,9 +341,11 @@ tags:
     this.t_buidler.SetResult(); 
 
     label5: return;
+```
 
 转成方便人类阅读的代码如下：
 
+```Java
     #class button1_Click_stateMachine#
     public void MoveNext() 
     {
@@ -365,6 +379,7 @@ tags:
             this.buidler.SetException(ex);
         }
     }
+```
 
 这里就变得很有意思了，button1_Click 的代码被编译器完全改变了模样，一方面被 AsyncTaskBuilder::Start() 消去了 async，另一方面函数的逻辑被分成了两半，转化成了 StateMachine 的不同状态逻辑代码，消去了await。 不得不佩服 .net 设计人员如此奇妙的设计。
 
@@ -375,6 +390,7 @@ StateMachine 根据 state 的值进入不同的状态逻辑。
 
 继续查看 AsyncTaskMethodBuilder::AwaitUnsafeOnCompleted 这里实际调用的是AsyncTaskMethodBuilder&lt;VoidTaskResult&gt;::AwaitUnsafeOnCompleted
 
+```Java
     public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(
             ref TAwaiter awaiter, ref TStateMachine stateMachine)
             where TAwaiter : ICriticalNotifyCompletion
@@ -426,10 +442,11 @@ StateMachine 根据 state 的值进入不同的状态逻辑。
             }
         }
     }
-
+```
     
 首先创建了一个 StateMachine 的包裹器，然后根据当前情况得知进入了 TaskAwaiter.UnsafeOnCompletedInternal(ta.m_task, box, continueOnCapturedContext: true);
 
+```Java
     internal static void TaskAwaiter::UnsafeOnCompletedInternal(Task task, IAsyncStateMachineBox stateMachineBox, bool continueOnCapturedContext)
     {
         Debug.Assert(stateMachineBox != null);
@@ -504,12 +521,13 @@ StateMachine 根据 state 的值进入不同的状态逻辑。
         }
         else return true;
     }
-
+```
     
 此处continueOnCapturedContext为true，并且由于是 UI 线程发起，SynchronizationContext.Current 也不为空。 所以进入了第一个分支。 在将 StateMachineBox 包裹成 SynchronizationContextAwaitTaskContinuation 这个完成种子，然后加入到 LoadImage Task 的完成队列。 如果这时任务已经完成，那么直接运行完成种子。 直接运行的情况后面再说，我们先看看加入之后的情况。
 
 当 LoadImage Task 没有完成时，界面将一直显示“获取图像中....."。 直到5秒过去， task 进入了 Finish 状态。 关于 Task Finish 不想再贴一大堆代码，总之经过层层的处理，在它行将退场之前将会拆开其他任务送给他的礼物（如果有的话）：一堆完成种子。 最终它会走到这么一步：
 
+```Java
     switch (currentContinuation)
     {
         case IAsyncStateMachineBox stateMachineBox:
@@ -529,9 +547,11 @@ StateMachine 根据 state 的值进入不同的状态逻辑。
             RunOrQueueCompletionAction((ITaskCompletionAction)currentContinuation, canInlineContinuations);
             break;
     }
+```
 
 此时，前面提到的 SynchronizationContextAwaitTaskContinuation 就要 run 起来了。
 
+```Java
     internal sealed override void Run(Task task, bool canInlineContinuationTask)
     {
         // If we're allowed to inline, run the action on this thread.
@@ -610,6 +630,7 @@ StateMachine 根据 state 的值进入不同的状态逻辑。
             if (prevCurrentTask != null) currentTask = prevCurrentTask;
         }
     }
+```
 
 最后 Task 会通过 SynchronizationContext 将 callback post 给 UI 线程。  此处的 callback 就是 stateMachineBox.MoveNextAction。 我们就回到了 state == 0 那一幕。 MoveNext 进入下一步，得到返回值后顺利输出。
 

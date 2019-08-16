@@ -10,24 +10,24 @@ tags:
 
 
 #### ruby update
-````
+```bash
 curl -L get.rvm.io | bash -s stable
 rvm install 2.3.0
 rvm use 2.3.0 --default
 
 ruby --version
-````
+```
 
 #### gems
-````
+```bash
 yum install rubygems
 gem install redis
-````
+```
 
 #### create cluster
-````
+```bash
 redis-trib.rb  create --replicas 1 172.131.120.116:6379  172.131.120.116:6380 172.131.120.116:6381  172.131.120.117:6379 172.131.120.117:6380 172.131.120.117:6381
-````
+```
 
 #### traps
 

@@ -7,6 +7,7 @@ tags:
 
 不同于.net framework的asp.net项目，asp.net core的启动入口直接就是Program.cs，就好像在写一个Console。启动代码非常的简洁，只有这么几句。
 
+```C#
         public static void Main(string[] args)
         {
             BuildWebHost(args).Run();
@@ -16,6 +17,7 @@ tags:
             WebHost.CreateDefaultBuilder(args)
                 .UseStartup<Startup>()
                 .Build();
+```
 
 粗看上去没什么花样，但是请注意这里的StartUp。 查看它的定义，你会惊奇的发现它没有继承任何接口，但是提供了两个Config方法用于初始化Service和App。
 

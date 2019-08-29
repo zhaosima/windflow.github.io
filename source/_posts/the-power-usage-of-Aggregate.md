@@ -129,7 +129,7 @@ tags:
 ```C#
         Func<int, int> Sumer(IEnumerable<int> seeds)
         {
-            return seeds.Aggregate<int, Func<int, int>>(x => x, (next, number) => y => next(number) + y);
+            return seeds.Aggregate<int, Func<int, int>>(x => x, (acc, number) => y => acc(number) + y);
         }
         Sumer(new [] {1,2,3})(4); //10
 ```
